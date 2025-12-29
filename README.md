@@ -5,11 +5,15 @@ An MCP (Model Context Protocol) server that enables Claude to communicate with J
 ## Features
 
 - Health check for Jenkins connectivity
-- List all Jenkins jobs
-- Get detailed job status and information
-- Get build details for specific builds
-- Get latest build information
+- List and search Jenkins jobs
+- Get detailed job status and build information
 - Retrieve build console output (logs)
+- Get test results summary with failed test names
+- View pipeline stage information
+- Check build queue status
+- Monitor build agent/node health
+- Compare builds to investigate regressions
+- Optimized tools for fast failure analysis
 
 ## Installation
 
@@ -20,13 +24,13 @@ npm run build
 
 ## Configuration
 
-Set the following environment variables:
+The server requires these environment variables:
 
-```bash
-export JENKINS_URL=https://your-jenkins-server.com
-export JENKINS_USERNAME=your-username
-export JENKINS_API_TOKEN=your-api-token
-```
+- `JENKINS_URL` - Your Jenkins server URL (e.g., `https://jenkins.example.com`)
+- `JENKINS_USERNAME` - Your Jenkins username
+- `JENKINS_API_TOKEN` - Your Jenkins API token
+
+**Note:** When using Claude Desktop or Claude Code, set these in the JSON config file (see setup sections below). You only need to export them in your shell for manual testing.
 
 ### Getting a Jenkins API Token
 
@@ -64,26 +68,89 @@ Add the following to your Claude Desktop configuration file:
 
 After updating the configuration, fully quit Claude Desktop (Cmd+Q on macOS) and reopen it.
 
+## Claude Code Setup
+
+Add a `.mcp.json` file to your project root (or `~/.claude/settings.json` for global access):
+
+```json
+{
+  "mcpServers": {
+    "jenkins": {
+      "command": "node",
+      "args": ["/absolute/path/to/jenkins-mcp-server/build/index.js"],
+      "env": {
+        "JENKINS_URL": "https://your-jenkins-server.com",
+        "JENKINS_USERNAME": "your-username",
+        "JENKINS_API_TOKEN": "your-api-token"
+      }
+    }
+  }
+}
+```
+
+After adding the config, restart Claude Code (`exit` then `claude`).
+
 ## Available Tools
+
+### Core Tools
 
 | Tool | Description | Parameters |
 |------|-------------|------------|
 | `jenkins_health_check` | Test Jenkins server connectivity | None |
-| `jenkins_list_jobs` | List all Jenkins jobs | None |
-| `jenkins_get_job_status` | Get detailed job status | `jobName: string` |
-| `jenkins_get_build_details` | Get specific build info | `jobName: string`, `buildNumber: number` |
-| `jenkins_get_latest_build` | Get most recent build | `jobName: string` |
-| `jenkins_get_build_console` | Get build console output | `jobName: string`, `buildNumber: number` |
+| `jenkins_list_jobs` | List all Jenkins jobs with full details | None |
+| `jenkins_get_job_status` | Get detailed status for a specific job | `jobName` |
+| `jenkins_get_build_details` | Get detailed info for a specific build | `jobName`, `buildNumber` |
+| `jenkins_get_latest_build` | Get the most recent build for a job | `jobName` |
+| `jenkins_get_build_console` | Get console output (logs) from a build | `jobName`, `buildNumber` |
+
+### Optimized Tools (Faster for Common Queries)
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `jenkins_list_jobs_summary` | Compact job list with status - faster than full list | None |
+| `jenkins_get_failed_jobs` | Get all failures within a time window | `hoursAgo` (default: 24) |
+| `jenkins_get_recent_failures_summary` | Quick failure count and list | `hoursAgo` (default: 24) |
+
+### Analysis Tools
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `jenkins_get_test_results` | Get test pass/fail counts and failed test names | `jobName`, `buildNumber` |
+| `jenkins_get_pipeline_stages` | Get pipeline stage breakdown (which stage failed) | `jobName`, `buildNumber` |
+| `jenkins_compare_builds` | Compare two builds (result, duration changes) | `jobName`, `buildNumber1`, `buildNumber2` |
+
+### Infrastructure Tools
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `jenkins_get_queue_status` | See what's waiting to build and why | None |
+| `jenkins_get_node_status` | Check build agent health (online/offline) | None |
+| `jenkins_search_jobs` | Search jobs by pattern (`*` and `?` wildcards) | `pattern` |
 
 ## Usage Examples
 
 Once configured, you can ask Claude:
 
-- "Check if Jenkins is healthy"
-- "List all Jenkins jobs"
-- "What's the status of the 'my-app-build' job?"
-- "Show me the latest build for 'my-app-build'"
-- "Get the console output for build #42 of 'my-app-build'"
+**Failure Analysis:**
+- "What Jenkins jobs failed in the last 24 hours?"
+- "Analyze the console output for job my-app build #42 and identify the root cause"
+- "What tests failed in build #42 of my-app?"
+- "Which pipeline stage failed in the latest build?"
+
+**Status Checks:**
+- "Is Jenkins healthy?"
+- "Give me a quick overview of all jobs"
+- "What's the status of the my-app job?"
+- "What's currently building or waiting in the queue?"
+
+**Investigation:**
+- "Compare build #41 and #42 of my-app - what changed?"
+- "Find all jobs matching cfg-deploy-*"
+- "Are all build agents online?"
+
+**Build Details:**
+- "Show me the latest build for my-app"
+- "Get the console output for build #42"
 
 ## Development
 

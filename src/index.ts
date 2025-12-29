@@ -127,6 +127,144 @@ const tools = [
       required: ["jobName", "buildNumber"],
     },
   },
+  // NEW OPTIMIZED TOOLS
+  {
+    name: "jenkins_get_failed_jobs",
+    description:
+      "Get all jobs that have failed within a time window. Use this for questions like 'what jobs failed in the last 24 hours?' - much faster than listing all jobs and checking each one.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        hoursAgo: {
+          type: "number",
+          description: "Time window in hours (default: 24). E.g., 24 for last day, 168 for last week.",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "jenkins_get_recent_failures_summary",
+    description:
+      "Get a quick, compact summary of recent build failures. Returns total count and list of failed jobs. Ideal for quick status checks.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        hoursAgo: {
+          type: "number",
+          description: "Time window in hours (default: 24)",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "jenkins_list_jobs_summary",
+    description:
+      "Get a compact list of all jobs with their current status (success/failure/building). Faster and smaller than full job list. Use this for quick overviews.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
+    },
+  },
+  // ADDITIONAL TOOLS
+  {
+    name: "jenkins_get_test_results",
+    description:
+      "Get test results summary for a build including pass/fail counts and failed test names. Use this to quickly see what tests failed.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        jobName: {
+          type: "string",
+          description: "The name of the Jenkins job",
+        },
+        buildNumber: {
+          type: "number",
+          description: "The build number to get test results for",
+        },
+      },
+      required: ["jobName", "buildNumber"],
+    },
+  },
+  {
+    name: "jenkins_get_pipeline_stages",
+    description:
+      "Get pipeline stage information for a build, showing which stages passed/failed and their durations. Use this to identify which stage failed in a Pipeline job.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        jobName: {
+          type: "string",
+          description: "The name of the Jenkins Pipeline job",
+        },
+        buildNumber: {
+          type: "number",
+          description: "The build number",
+        },
+      },
+      required: ["jobName", "buildNumber"],
+    },
+  },
+  {
+    name: "jenkins_get_queue_status",
+    description:
+      "Get the current build queue showing what jobs are waiting to run and why. Use this for 'what's building?' or 'why is my build waiting?' questions.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "jenkins_search_jobs",
+    description:
+      "Search for jobs matching a pattern. Supports wildcards: * (any chars) and ? (single char). E.g., 'cfg-*' or '*-deploy-*'.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        pattern: {
+          type: "string",
+          description: "Search pattern with wildcards (* for any chars, ? for single char)",
+        },
+      },
+      required: ["pattern"],
+    },
+  },
+  {
+    name: "jenkins_get_node_status",
+    description:
+      "Get status of all Jenkins build agents/nodes showing which are online, offline, or idle. Use for infrastructure health checks.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "jenkins_compare_builds",
+    description:
+      "Compare two builds of the same job to see what changed (result, duration). Useful for investigating regressions.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        jobName: {
+          type: "string",
+          description: "The name of the Jenkins job",
+        },
+        buildNumber1: {
+          type: "number",
+          description: "First build number to compare",
+        },
+        buildNumber2: {
+          type: "number",
+          description: "Second build number to compare",
+        },
+      },
+      required: ["jobName", "buildNumber1", "buildNumber2"],
+    },
+  },
 ];
 
 // Handle list tools request
@@ -226,6 +364,103 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         return {
           content: [{ type: "text", text: output }],
+        };
+      }
+
+      // NEW OPTIMIZED TOOLS
+      case "jenkins_get_failed_jobs": {
+        const hoursAgo = (args as { hoursAgo?: number }).hoursAgo ?? 24;
+        const result = await jenkinsClient.getFailedJobs(hoursAgo);
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case "jenkins_get_recent_failures_summary": {
+        const hoursAgo = (args as { hoursAgo?: number }).hoursAgo ?? 24;
+        const result = await jenkinsClient.getRecentFailuresSummary(hoursAgo);
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case "jenkins_list_jobs_summary": {
+        const result = await jenkinsClient.listJobsSummary();
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      // ADDITIONAL TOOL HANDLERS
+      case "jenkins_get_test_results": {
+        const { jobName, buildNumber } = args as {
+          jobName: string;
+          buildNumber: number;
+        };
+        if (!jobName || buildNumber === undefined) {
+          throw new Error("jobName and buildNumber are required");
+        }
+        const result = await jenkinsClient.getTestResults(jobName, buildNumber);
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case "jenkins_get_pipeline_stages": {
+        const { jobName, buildNumber } = args as {
+          jobName: string;
+          buildNumber: number;
+        };
+        if (!jobName || buildNumber === undefined) {
+          throw new Error("jobName and buildNumber are required");
+        }
+        const result = await jenkinsClient.getPipelineStages(jobName, buildNumber);
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case "jenkins_get_queue_status": {
+        const result = await jenkinsClient.getBuildQueueStatus();
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case "jenkins_search_jobs": {
+        const pattern = (args as { pattern: string }).pattern;
+        if (!pattern) {
+          throw new Error("pattern is required");
+        }
+        const result = await jenkinsClient.searchJobs(pattern);
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case "jenkins_get_node_status": {
+        const result = await jenkinsClient.getNodeStatus();
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      }
+
+      case "jenkins_compare_builds": {
+        const { jobName, buildNumber1, buildNumber2 } = args as {
+          jobName: string;
+          buildNumber1: number;
+          buildNumber2: number;
+        };
+        if (!jobName || buildNumber1 === undefined || buildNumber2 === undefined) {
+          throw new Error("jobName, buildNumber1, and buildNumber2 are required");
+        }
+        const result = await jenkinsClient.compareBuilds(
+          jobName,
+          buildNumber1,
+          buildNumber2
+        );
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
         };
       }
 
