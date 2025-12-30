@@ -111,7 +111,7 @@ const tools = [
   },
   {
     name: "jenkins_get_build_console",
-    description: "Get the console output (logs) from a specific build",
+    description: "Get the console output (logs) from a specific build. By default truncates middle of large logs. Use tailLines to get only the last N lines (recommended for debugging failures).",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -123,8 +123,43 @@ const tools = [
           type: "number",
           description: "The build number to retrieve logs for",
         },
+        tailLines: {
+          type: "number",
+          description: "If set, return only the last N lines of the log. Useful for seeing recent output/errors without middle truncation.",
+        },
       },
       required: ["jobName", "buildNumber"],
+    },
+  },
+  {
+    name: "jenkins_search_build_console",
+    description:
+      "Search the console output of a build for a pattern (regex). Returns matching lines with surrounding context. Use this to find specific errors, exceptions, or keywords in large logs.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        jobName: {
+          type: "string",
+          description: "The name of the Jenkins job",
+        },
+        buildNumber: {
+          type: "number",
+          description: "The build number to search",
+        },
+        pattern: {
+          type: "string",
+          description: "Regex pattern to search for (e.g., 'ERROR', 'Exception', 'FAILED')",
+        },
+        contextLines: {
+          type: "number",
+          description: "Number of lines to show before and after each match (default: 5)",
+        },
+        maxMatches: {
+          type: "number",
+          description: "Maximum number of matches to return (default: 50)",
+        },
+      },
+      required: ["jobName", "buildNumber", "pattern"],
     },
   },
   // NEW OPTIMIZED TOOLS
@@ -339,9 +374,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "jenkins_get_build_console": {
-        const { jobName, buildNumber } = args as {
+        const { jobName, buildNumber, tailLines } = args as {
           jobName: string;
           buildNumber: number;
+          tailLines?: number;
         };
         if (!jobName || buildNumber === undefined) {
           throw new Error("jobName and buildNumber are required");
@@ -351,19 +387,103 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           buildNumber
         );
 
-        // Truncate if too long (keep first and last portions)
-        const maxLines = 3000;
         const lines = result.split("\n");
+        let output: string;
 
-        let output = result;
-        if (lines.length > maxLines) {
-          const firstHalf = lines.slice(0, maxLines / 2).join("\n");
-          const lastHalf = lines.slice(-maxLines / 2).join("\n");
-          output = `${firstHalf}\n\n... [${lines.length - maxLines} lines truncated] ...\n\n${lastHalf}`;
+        if (tailLines && tailLines > 0) {
+          // Tail mode: return only the last N lines
+          const tailOutput = lines.slice(-tailLines).join("\n");
+          const skipped = lines.length - tailLines;
+          if (skipped > 0) {
+            output = `[Showing last ${tailLines} of ${lines.length} lines (${skipped} lines skipped)]\n\n${tailOutput}`;
+          } else {
+            output = tailOutput;
+          }
+        } else {
+          // Default: truncate middle if too long (keep first and last portions)
+          const maxLines = 3000;
+          if (lines.length > maxLines) {
+            const firstHalf = lines.slice(0, maxLines / 2).join("\n");
+            const lastHalf = lines.slice(-maxLines / 2).join("\n");
+            output = `${firstHalf}\n\n... [${lines.length - maxLines} lines truncated] ...\n\n${lastHalf}`;
+          } else {
+            output = result;
+          }
         }
 
         return {
           content: [{ type: "text", text: output }],
+        };
+      }
+
+      case "jenkins_search_build_console": {
+        const { jobName, buildNumber, pattern, contextLines = 5, maxMatches = 50 } = args as {
+          jobName: string;
+          buildNumber: number;
+          pattern: string;
+          contextLines?: number;
+          maxMatches?: number;
+        };
+        if (!jobName || buildNumber === undefined || !pattern) {
+          throw new Error("jobName, buildNumber, and pattern are required");
+        }
+
+        const result = await jenkinsClient.getBuildConsoleOutput(jobName, buildNumber);
+        const lines = result.split("\n");
+
+        let regex: RegExp;
+        try {
+          regex = new RegExp(pattern, "i");
+        } catch {
+          throw new Error(`Invalid regex pattern: ${pattern}`);
+        }
+
+        interface Match {
+          lineNumber: number;
+          matchedLine: string;
+          context: string[];
+        }
+
+        const matches: Match[] = [];
+        const usedLineRanges: Set<number> = new Set();
+
+        for (let i = 0; i < lines.length && matches.length < maxMatches; i++) {
+          if (regex.test(lines[i])) {
+            // Check if this line is already included in a previous match's context
+            if (usedLineRanges.has(i)) continue;
+
+            const startLine = Math.max(0, i - contextLines);
+            const endLine = Math.min(lines.length - 1, i + contextLines);
+
+            const contextBlock: string[] = [];
+            for (let j = startLine; j <= endLine; j++) {
+              const prefix = j === i ? ">>> " : "    ";
+              contextBlock.push(`${prefix}${j + 1}: ${lines[j]}`);
+              usedLineRanges.add(j);
+            }
+
+            matches.push({
+              lineNumber: i + 1,
+              matchedLine: lines[i],
+              context: contextBlock,
+            });
+          }
+        }
+
+        const totalLines = lines.length;
+        const summary = {
+          pattern,
+          totalMatches: matches.length,
+          totalLines,
+          truncated: matches.length >= maxMatches,
+          matches: matches.map((m) => ({
+            line: m.lineNumber,
+            context: m.context.join("\n"),
+          })),
+        };
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(summary, null, 2) }],
         };
       }
 

@@ -36,4 +36,7 @@ npm-debug.log*
 # Test coverage
 coverage/
 
+# Reports
+.reports/
+
 -prompt.md
