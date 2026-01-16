@@ -94,61 +94,65 @@ After adding the config, restart Claude Code (`exit` then `claude`).
 
 ### Core Tools
 
-| Tool | Description | Parameters |
-|------|-------------|------------|
-| `jenkins_health_check` | Test Jenkins server connectivity | None |
-| `jenkins_list_jobs` | List all Jenkins jobs with full details | None |
-| `jenkins_get_job_status` | Get detailed status for a specific job | `jobName` |
-| `jenkins_get_build_details` | Get detailed info for a specific build | `jobName`, `buildNumber` |
-| `jenkins_get_latest_build` | Get the most recent build for a job | `jobName` |
-| `jenkins_get_build_console` | Get console output (logs) from a build | `jobName`, `buildNumber` |
+| Tool                        | Description                             | Parameters               |
+| --------------------------- | --------------------------------------- | ------------------------ |
+| `jenkins_health_check`      | Test Jenkins server connectivity        | None                     |
+| `jenkins_list_jobs`         | List all Jenkins jobs with full details | None                     |
+| `jenkins_get_job_status`    | Get detailed status for a specific job  | `jobName`                |
+| `jenkins_get_build_details` | Get detailed info for a specific build  | `jobName`, `buildNumber` |
+| `jenkins_get_latest_build`  | Get the most recent build for a job     | `jobName`                |
+| `jenkins_get_build_console` | Get console output (logs) from a build  | `jobName`, `buildNumber` |
 
 ### Optimized Tools (Faster for Common Queries)
 
-| Tool | Description | Parameters |
-|------|-------------|------------|
-| `jenkins_list_jobs_summary` | Compact job list with status - faster than full list | None |
-| `jenkins_get_failed_jobs` | Get all failures within a time window | `hoursAgo` (default: 24) |
-| `jenkins_get_recent_failures_summary` | Quick failure count and list | `hoursAgo` (default: 24) |
+| Tool                                  | Description                                          | Parameters               |
+| ------------------------------------- | ---------------------------------------------------- | ------------------------ |
+| `jenkins_list_jobs_summary`           | Compact job list with status - faster than full list | None                     |
+| `jenkins_get_failed_jobs`             | Get all failures within a time window                | `hoursAgo` (default: 24) |
+| `jenkins_get_recent_failures_summary` | Quick failure count and list                         | `hoursAgo` (default: 24) |
 
 ### Analysis Tools
 
-| Tool | Description | Parameters |
-|------|-------------|------------|
-| `jenkins_get_test_results` | Get test pass/fail counts and failed test names | `jobName`, `buildNumber` |
-| `jenkins_get_pipeline_stages` | Get pipeline stage breakdown (which stage failed) | `jobName`, `buildNumber` |
-| `jenkins_compare_builds` | Compare two builds (result, duration changes) | `jobName`, `buildNumber1`, `buildNumber2` |
+| Tool                          | Description                                       | Parameters                                |
+| ----------------------------- | ------------------------------------------------- | ----------------------------------------- |
+| `jenkins_get_test_results`    | Get test pass/fail counts and failed test names   | `jobName`, `buildNumber`                  |
+| `jenkins_get_pipeline_stages` | Get pipeline stage breakdown (which stage failed) | `jobName`, `buildNumber`                  |
+| `jenkins_compare_builds`      | Compare two builds (result, duration changes)     | `jobName`, `buildNumber1`, `buildNumber2` |
 
 ### Infrastructure Tools
 
-| Tool | Description | Parameters |
-|------|-------------|------------|
-| `jenkins_get_queue_status` | See what's waiting to build and why | None |
-| `jenkins_get_node_status` | Check build agent health (online/offline) | None |
-| `jenkins_search_jobs` | Search jobs by pattern (`*` and `?` wildcards) | `pattern` |
+| Tool                       | Description                                    | Parameters |
+| -------------------------- | ---------------------------------------------- | ---------- |
+| `jenkins_get_queue_status` | See what's waiting to build and why            | None       |
+| `jenkins_get_node_status`  | Check build agent health (online/offline)      | None       |
+| `jenkins_search_jobs`      | Search jobs by pattern (`*` and `?` wildcards) | `pattern`  |
 
 ## Usage Examples
 
 Once configured, you can ask Claude:
 
 **Failure Analysis:**
+
 - "What Jenkins jobs failed in the last 24 hours?"
 - "Analyze the console output for job my-app build #42 and identify the root cause"
 - "What tests failed in build #42 of my-app?"
 - "Which pipeline stage failed in the latest build?"
 
 **Status Checks:**
+
 - "Is Jenkins healthy?"
 - "Give me a quick overview of all jobs"
 - "What's the status of the my-app job?"
 - "What's currently building or waiting in the queue?"
 
 **Investigation:**
+
 - "Compare build #41 and #42 of my-app - what changed?"
-- "Find all jobs matching cfg-deploy-*"
+- "Find all jobs matching cfg-deploy-\*"
 - "Are all build agents online?"
 
 **Build Details:**
+
 - "Show me the latest build for my-app"
 - "Get the console output for build #42"
 
