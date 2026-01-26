@@ -70,12 +70,36 @@ After updating the configuration, fully quit Claude Desktop (Cmd+Q on macOS) and
 
 ## Claude Code Setup
 
-Add a `.mcp.json` file to your project root (or `~/.claude/settings.json` for global access):
+### Global Configuration (recommended)
+
+Edit `~/.claude.json` and add the server under the `mcpServers` key. This makes the server available in all projects without per-project approval prompts:
 
 ```json
 {
   "mcpServers": {
     "jenkins": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/absolute/path/to/jenkins-mcp-server/build/index.js"],
+      "env": {
+        "JENKINS_URL": "https://your-jenkins-server.com",
+        "JENKINS_USERNAME": "your-username",
+        "JENKINS_API_TOKEN": "your-api-token"
+      }
+    }
+  }
+}
+```
+
+### Project Configuration
+
+Alternatively, add a `.mcp.json` file to your project root for project-specific access:
+
+```json
+{
+  "mcpServers": {
+    "jenkins": {
+      "type": "stdio",
       "command": "node",
       "args": ["/absolute/path/to/jenkins-mcp-server/build/index.js"],
       "env": {
